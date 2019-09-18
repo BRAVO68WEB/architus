@@ -4,11 +4,7 @@ import ssl
 import asyncio
 import secrets
 import websockets
-import re
-import discord
 from discord.ext.commands import Cog, Context
-from src.user_command import UserCommand, VaguePatternError, LongResponseException, ShortTriggerException
-from src.user_command import ResponseKeywordException, DuplicatedTriggerException, update_command, UserLimitException
 
 CALLBACK_URL = "https://archit.us/app"
 
@@ -55,125 +51,6 @@ class Api(Cog):
                 print(f"caught {e} while handling websocket request")
                 resp = {'content': f"caught {e} while handling websocket request"}
             await websocket.send(json.dumps(resp))
-
-    @asyncio.coroutine
-    def handle_request(self, pub, msg):
-        try:
-            resp = json.dumps((yield from getattr(self.bot.get_cog("Api"), msg['method'])(*msg['args'])))
-        except Exception as e:
-            traceback.print_exc()
-            print(f"caught {e} while handling {msg['topic']}s request")
-            resp = '{"message": "' + str(e) + '"}'
-        yield from pub.send((str(msg['topic']) + ' ' + str(resp)).encode())
-
-    async def store_callback(self, nonce=None, url=None):
-        assert nonce and url
-        if not any(re.match(pattern, url) for pattern in (
-                r'https:\/\/[-A-Za-z0-9]{24}--architus\.netlify\.com\/app',
-                r'https:\/\/deploy-preview-[0-9]+--architus\.netlify\.com\/app',
-                r'https:\/\/develop\.archit\.us\/app',
-                r'https:\/\/archit\.us\/app',
-                r'http:\/\/localhost:3000\/app')):
-            url = CALLBACK_URL
-
-        self.callback_urls[nonce] = url
-        return {"content": True}
-
-    async def get_callback(self, nonce=None):
-        url = self.callback_urls.pop(nonce, CALLBACK_URL)
-        resp = {"content": url}
-        return resp
-
-    async def guild_counter(self):
-        return {'guild_count': self.bot.guild_counter[0], 'user_count': self.bot.guild_counter[1]}
-
-    async def set_response(self, user_id, guild_id, trigger, response):
-        guild = self.bot.get_guild(int(guild_id))
-        try:
-            command = UserCommand(self.bot.session, self.bot, trigger, response, 0, guild, user_id, new=True)
-        except VaguePatternError:
-            msg = "Capture group too broad."
-        except LongResponseException:
-            msg = "Response is too long."
-        except ShortTriggerException:
-            msg = "Trigger is too short."
-        except ResponseKeywordException:
-            msg = "That response is protected, please use another."
-        except DuplicatedTriggerException:
-            msg = "Remove duplicated trigger first."
-        except UserLimitException as e:
-            msg = str(e)
-        else:
-            self.bot.user_commands[guild_id].append(command)
-            msg = 'Sucessfully Set'
-        return {'message': msg}
-
-    async def is_member(self, user_id, guild_id, admin=False):
-        '''check if user is a member or admin of the given guild'''
-        guild = self.bot.get_guild(int(guild_id))
-        guild_settings = self.bot.get_cog("GuildSettings")
-        if not guild:
-            return False
-        settings = guild_settings.get_guild(guild, self.bot.session)
-        return {'member': bool(guild.get_member(int(user_id))) and (not admin or int(user_id) in settings.admins_ids)}
-
-    async def delete_response(self, user_id, guild_id, trigger):
-        guild = self.bot.get_guild(int(guild_id))
-
-        for oldcommand in self.bot.user_commands[guild_id]:
-            if oldcommand.raw_trigger == oldcommand.filter_trigger(trigger):
-                self.bot.user_commands[guild_id].remove(oldcommand)
-                update_command(self.bot.session, oldcommand.raw_trigger, '', 0, guild, user_id, delete=True)
-                return {'message': "Successfully Deleted"}
-        return {'message': "No such command.", 'status_code': 400}
-
-    async def fetch_user_dict(self, id):
-        usr = self.bot.get_user(int(id))
-        if usr is None:
-            return None
-        return {
-            'name': usr.name,
-            'avatar': usr.avatar,
-            'discriminator': usr.discriminator
-        }
-
-    async def get_emoji(self, id):
-        e = self.bot.get_emoji(int(id))
-        if e is None:
-            return None
-        return {
-            'name': e.name,
-            'url': str(e.url)
-        }
-
-    async def get_extensions(self):
-        return {'extensions': [k for k in self.bot.extensions.keys()]}
-
-    async def reload_extension(self, extension_name):
-        name = extension_name.replace('-', '.')
-        try:
-            self.bot.reload_extension(name)
-        except discord.ext.commands.errors.ExtensionNotLoaded as e:
-            print(e)
-            return {"message": f"Extension Not Loaded: {e}", "status_code": 503}
-        return {"message": "Reload signal sent"}
-
-    async def settings_access(self, guild_id=None, setting=None, value=None):
-        guild_settings = self.bot.get_cog("GuildSettings")
-        guild = self.bot.get_guild(guild_id)
-        settings = guild_settings.get_guild(guild, self.bot.session)
-        if hasattr(settings, setting):
-            return {'value': getattr(settings, setting)}
-        return {'value': "unknown setting"}
-
-    async def tag_autbot_guilds(self, guild_list, user_id):
-        guild_settings = self.bot.get_cog("GuildSettings")
-        for guild_dict in guild_list:
-            guild = self.bot.get_guild(int(guild_dict['id']))
-            settings = guild_settings.get_guild(guild, self.bot.session)
-            guild_dict['has_autbot'] = guild is not None
-            guild_dict['autbot_admin'] = bool(settings) and user_id in settings.admins_ids
-        return guild_list
 
     async def interpret(
             self,
