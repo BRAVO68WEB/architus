@@ -8,6 +8,7 @@ GROUP_LIMIT = 1
 
 
 def update_command(session, triggerkey, response, count, guild, author_id, delete=False):
+    return
     if guild.id < 1000000:
         return
     if (delete):
@@ -36,35 +37,28 @@ class UserCommand:
         self.count = count
         self.server = guild
         self.author_id = author_id
-        if new and self.validate_new_command() and guild.id > 1000000:
+        if False and new and self.validate_new_command() and guild.id > 1000000:
             try:
                 new_command = Command(str(guild.id) + self.raw_trigger, self.raw_response, count, guild.id, author_id)
                 self.session.add(new_command)
                 self.session.commit()
             except IntegrityError:
-                self.session.rollback()
+                # self.session.rollback()
                 raise DuplicatedTriggerException(self.raw_trigger)
 
     def validate_new_command(self):
-        settings = self.bot.get_cog("GuildSettings").get_guild(self.server)
+        # settings = self.bot.get_cog("GuildSettings").get_guild(self.server)
         if len(self.raw_trigger) < 2:
             raise ShortTriggerException("Please use a longer trigger")
-        if len(self.raw_response) > 200 and self.author_id not in settings.admin_ids:
+        if len(self.raw_response) > 200 and False:
             raise LongResponseException("That response is too long, ask an admin to set it")
         if self.raw_response in ("author", "list", "remove"):
             raise ResponseKeywordException()
-        if settings.responses_limit is not None and self.author_id not in settings.admin_ids:
-            c = Counter([r.author_id for r in self.bot.user_commands[self.server.id]])
-            count = c.get(self.author_id, 0)
-            if count >= settings.responses_limit:
-                raise UserLimitException(f"You have already set {count} commands, ask an admin to set it")
-        # if user has too many commands?
-        # language filter?
         return True
 
     async def execute(self, message):
         resp = self.generate_response(message.author, message.content)
-        update_command(self.session, self.raw_trigger, self.raw_response, self.count, self.server, self.author_id)
+        # update_command(self.session, self.raw_trigger, self.raw_response, self.count, self.server, self.author_id)
         reacts = self.generate_reacts()
         if resp:
             await message.channel.send(resp)

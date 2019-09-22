@@ -43,4 +43,4 @@ def get_session(pid=None):
     return session
 
 
-session = get_session()
+#session = get_session()

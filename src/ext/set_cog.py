@@ -40,9 +40,10 @@ class SetCog(commands.Cog, name="Auto Responses"):
         [noun], [adj], [adv], [member], [owl], [:reaction:], [count], [comma,separated,choices]
         '''
         user_commands = self.bot.user_commands
-        settings = self.guild_settings.get_guild(ctx.guild, session=self.session)
-        from_admin = ctx.author.id in settings.admins_ids
-        if settings.bot_commands_channels and ctx.channel.id not in settings.bot_commands_channels and not from_admin:
+        # settings = self.guild_settings.get_guild(ctx.guild, session=self.session)
+        settings = None
+        from_admin = False  # ctx.author.id in settings.admins_ids
+        if False and ctx.channel.id not in settings.bot_commands_channels and not from_admin:
             for channelid in settings.bot_commands_channels:
                 botcommands = discord.utils.get(ctx.guild.channels, id=channelid)
                 if botcommands:

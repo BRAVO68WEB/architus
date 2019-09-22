@@ -11,7 +11,7 @@ from pytz import timezone
 
 from src.user_command import UserCommand
 from src.smart_message import smart_message
-from src.config import get_session
+# from src.config import get_session
 from src.models import Command
 
 starboarded_messages = []
@@ -21,7 +21,7 @@ class CoolBot(Bot):
 
     def __init__(self, **kwargs):
         self.user_commands = {}
-        self.session = get_session()
+        self.session = None# get_session()
         self.guild_counter = (0, 0)
         self.tracked_messages = {}
         self.deletable_messages = []
@@ -30,8 +30,8 @@ class CoolBot(Bot):
     def run(self, token, q=None):
         self.q = q
 
-        ctx = zmq.asyncio.Context()
-        self.loop.create_task(self.poll_requests(ctx))
+        # ctx = zmq.asyncio.Context()
+        # self.loop.create_task(self.poll_requests(ctx))
         super().run(token)
 
     async def on_ready(self):
